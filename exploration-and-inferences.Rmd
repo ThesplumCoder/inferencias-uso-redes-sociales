@@ -1,0 +1,33 @@
+---
+title: "Exploración y Inferencias"
+author: "Anderson Acuña, Duvan Guevara y Gabriel Chavarro"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Exploración de datos
+
+```{r}
+social_networks_data <- read.csv("./social-network-data.csv")
+social_networks_data <- social_networks_data[, -c(1)]
+```
+
+```{r}
+ages_frecuency <- table(social_networks_data$Edad)
+barplot(ages_frecuency)
+```
+
+# Prueba de hipótesis
+
+## Hipótesis de atención a clase
+Los estudiantes utilizan menos de 30 minutos las redes sociales mientras atienden una clase virtual (minutos en promedio que usa una red social mientras está en clase).
+```{r}
+
+```
+
