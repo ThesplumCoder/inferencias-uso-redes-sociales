@@ -6,28 +6,100 @@ output:
   html_document: 
     toc: true
 ---
+## Hipótesis de datos pareados
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-# Exploración de datos
+*Tratamiento de datos*
+Se seleccionaron las columnas relevantes que muestran la frecuencia de uso y su equivalente durante los primeros cinco semestres. Se filtraron únicamente las filas correspondientes a estudiantes en el sexto semestre o superior, y se promediaron los valores asignando las siguientes equivalencias: "Menos de 1 hora" se consideró como 0.5 horas, "1-2 horas" como 1.5 horas, "2-3 horas" como 2.5 horas, "3-4 horas" como 3.5 horas, "4-5 horas" como 4.5 horas, y "Más de 5 horas" como 6 horas.
 
 ```{r}
-social_networks_data <- read.csv("./social-network-data.csv")
-social_networks_data <- social_networks_data[, -c(1)]
+social_networks_data3 <- read.csv("./social-network-data.csv")
+social_networks_data3 <- social_networks_data3[, -c(1)]
+new_colnames3 <- c("Edad", "Sexo", "Trabaja", "Deporte", "Redes_Sociales", "Horas_Uso", "Carrera", "Semestre", "Uso_Clase", "Uso_Primeros_Semestres")
+colnames(social_networks_data3) <- new_colnames3
+
+categorias_Horas_Uso <- c("Menos de 1 hora", 
+                          "1-2 horas", 
+                          "2-3 horas", 
+                          "3-4 horas", 
+                          "4-5 horas", 
+                          "Más de 5 horas")
+reemplazos_Horas_Uso <- c(0.5, 1.5, 2.5, 3.5, 4.5, 6)
+categorias_Uso_Primeros_Semestres <- c("Menos de 1 hora al día", 
+                                       "1-2 horas al día", 
+                                       "2-3 horas al día",
+                                       "3-4 horas al día", 
+                                       "4-5 horas al día", 
+                                       "Más de 5 horas al día")
+reemplazos_Uso_Primeros_Semestres <- c(0.5, 1.5, 2.5, 3.5, 4.5, 6)
+
+social_networks_data3$Horas_Uso_1a5 <- reemplazos_Uso_Primeros_Semestres[match(social_networks_data3$Uso_Primeros_Semestres,
+                                                                                      categorias_Uso_Primeros_Semestres)]
+
+social_networks_data3$Horas_Uso_6a10 <- reemplazos_Horas_Uso[match(social_networks_data3$Horas_Uso, 
+                                                            categorias_Horas_Uso)]
+
+paired_sample <- social_networks_data3[social_networks_data3$Uso_Primeros_Semestres != "", c(11, 12)]
 ```
 
 ```{r}
-ages_frecuency <- table(social_networks_data$Edad)
-barplot(ages_frecuency)
+datos_1a5 <- c(paired_sample$Horas_Uso_1a5)
+datos_6a10 <- c(paired_sample$Horas_Uso_6a10)
+diferencia <- c(datos_6a10- datos_1a5)
+
+tabla_datos <- data.frame(Horas_Uso_1a5 = datos_1a5,
+                          Horas_Uso_6a10 = datos_6a10,
+                          Diferencia = diferencia)
+print(tabla_datos)
 ```
+El objetivo de esta investigación es probar la hipótesis de que los estudiantes universitarios de semestres avanzados (6 a 10) dedican menos tiempo a las redes sociales que cuando cursaban semestres iniciales (1 a 5). Esta hipótesis se basa en la premisa de que, a medida que los estudiantes avanzan en su carrera universitaria, enfrentan mayores responsabilidades académicas, laborales y personales, lo que podría conducir a una disminución del tiempo disponible para actividades de ocio, como el uso de redes sociales.
 
-# Prueba de hipótesis
-
-## Hipótesis de atención a clase
-Los estudiantes utilizan menos de 30 minutos las redes sociales mientras atienden una clase virtual (minutos en promedio que usa una red social mientras está en clase).
+$$
+H_0: \mu_{6-10} - \mu_{1-5} = 0\\
+H_1: \mu_{6-10} - \mu_{1-5} < 0
+$$
+Suponiendo que los datos siguen la distribución NORMAL, con un nivel de significancia de 0.05
 ```{r}
+n= length(diferencia)
+print(paste("Tamaño de la muestra:", n))
+mu_d = mean(diferencia)
+print(paste("Diferencia media:", mu_d))
+s = sd(diferencia)
+print(paste("DS muestral s:", s))
 
+# Estadístico t
+estad_T <- mu_d / (s / sqrt(n))
+print(paste("Estadístico t:", estad_T))
+
+# Nivel de significancia (alfa)
+alfa <- 0.05
+
+# Valor crítico para una cola (inferior)
+ta <- qt(alfa, df = n - 1, lower.tail = TRUE)
+print(paste("Valor crítico (t_alpha):", ta))
+
+# Cálculo del p-valor (prueba de una cola, inferior)
+p_value <- pt(estad_T, df = n - 1, lower.tail = TRUE)
+print(paste("El p-value es:", p_value))
+
+# Resultados de la prueba
+if (p_value < alfa) {
+  print("Rechazamos la hipótesis nula")
+} else {
+  print(paste("No podemos rechazar la hipótesis nula a un nivel de significancia de",alfa))
+}
 ```
+```{r}
+curve(dt(x, df = n-1), col = 'salmon', 
+      from = -3, to = 3, 
+      ylab = 'Densidad', xlab = 't', 
+      main = 'Distribución t con n-1 grados de libertad')
+
+abline(v = ta, col = 'red', lty = 2)
+abline(v = estad_T, col = 'green', lty = 2)
+legend('topright', legend = c(paste('Valor crítico, a=', alfa), 'Estadístico T'), col = c('red', 'green'), lty = 2)
+```
+
+### Conclusiones
+Dado que tanto el valor crítico como el p-valor indican que no podemos rechazar la hipótesis nula, concluimos que no hay suficiente evidencia estadística para afirmar que los estudiantes en semestres avanzados dedican menos tiempo a las redes sociales que cuando cursaban los semestres iniciales. Por lo tanto, los datos no respaldan la premisa de que el tiempo de uso de las redes sociales disminuye significativamente a medida que los estudiantes avanzan en su carrera universitaria.
+
 
