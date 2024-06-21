@@ -18,16 +18,331 @@ social_networks_data <- read.csv("./social-network-data.csv")
 social_networks_data <- social_networks_data[, -c(1)]
 ```
 
+## Rangos etarios
+
 ```{r}
 ages_frecuency <- table(social_networks_data$Edad)
-barplot(ages_frecuency)
+
+barplot(ages_frecuency,
+        ylim = c(0, 40),
+        col = "orange")
 ```
 
-# Prueba de hipótesis
+## Participación por sexo
 
-## Hipótesis de atención a clase
-Los estudiantes utilizan menos de 30 minutos las redes sociales mientras atienden una clase virtual (minutos en promedio que usa una red social mientras está en clase).
 ```{r}
+sexo_counts <- table(social_networks_data$Sexo)
+sexo_percent <- prop.table(sexo_counts) * 100
+labels <- paste(names(sexo_counts), "\n", "N =", sexo_counts, "\n", "(", round(sexo_percent, 1), "%)")
+pie(sexo_counts,
+    main = "Distribución por Sexo",
+    col = c("pink", "lightblue"),
+    labels = labels)
+```
+
+## Participación por carreras
+
+```{r}
+programs_frecuency <- sort(table(social_networks_data$X.Qué.carrera.está.estudiando.actualmente.),
+                           decreasing = TRUE)
+
+barplot(programs_frecuency,
+        col = rainbow(15),
+        xlab = "Programas",
+        ylab = "Frecuencia absoluta",
+        axisnames = FALSE,
+        legend.text = TRUE,
+        args.legend = list(x = 18, y = 31, inset = 0.01))
+```
+
+```{r}
+levels_frecuency <- sort(table(social_networks_data$X.En.qué.semestre.se.encuentra.actualmente.), 
+                         decreasing = TRUE)
+
+barplot(levels_frecuency, 
+        ylim = c(0, 15),
+        col = rainbow(10),
+        xlab = "Nivel de semestre",
+        ylab = "Frecuencia absoluta",
+        axisnames = FALSE,
+        legend.text = TRUE,
+        args.legend = list(x = 13, y = 18, inset = 0.01))
+```
+
+
+# Pruebas de hipótesis
+
+## Hipótesis 1: de atención a clase
+Queremos probar que al menos el 80% de los estudiantes utilizan menos de media 
+hora las redes sociales mientras atienden una clase virtual. En nuestro caso, si 
+menos de 42 estudiantes usan menos de media hora las redes, no se rechazará la 
+hipótesis nula.
+
+Exploramos las frecuencias que tienen cada una de las categorías de la encuesta, 
+sobre el uso de las redes sociales mientras atienden una clase virtual.
+```{r}
+usage_hours_class <- sort(table(social_networks_data$Durante.una.clase.virtual..cuánto.tiempo.usa.redes.sociales.), decreasing = TRUE)
+
+barplot(usage_hours_class,
+        ylim = c(0, 40),
+        main = "Tiempo promedio de uso de redes sociales en clase virtual",
+        ylab = "Cantidad de personas",
+        col = rainbow(5),
+        axes = TRUE,
+        axisnames = FALSE,
+        legend.text = TRUE,
+        args.legend = list(x = "topright", inset = 0.01))
+```
+
+Planteamos la hipótesis sobre la que vamos a trabajar, con un nivel de 
+significancia del 0.01:
+$$
+H_0: p = 0.8 \\
+H_1: p < 0.8
+$$
+
+```{r}
+h0 = 0.8
+significance = 0.01
+samples = length(social_networks_data$Edad)
+
+plot(dbinom(1:samples, size = samples, prob = h0), 
+     col = 'blue', 
+     main = "Distribución binomial con p = 0.8", 
+     xlab = "Cantidad de estudiantes que usan menos de 30 minutos las redes", 
+     ylab = "Masa de probabilidad")
+```
+
+Sumamos la cantidad de personas que usan menos de media hora las redes sociales, 
+junto con los que no las usan absolutamente. Usamos la aproximación normal a la 
+binomial para probar nuestra hipótesis:
+```{r}
+p0 = h0
+p_hat = (usage_hours_class[[1]] + usage_hours_class[[3]])/ samples
+
+mean_p_hat = p0
+deviation_p_hat = sqrt(p0 * (1 - p0) / samples)
+
+statistic_z_prop = (p_hat - mean_p_hat) / deviation_p_hat
+limit = qnorm(p = significance, mean = mean_p_hat, sd = deviation_p_hat)
+
+curve(dnorm(x, mean = mean_p_hat, sd = deviation_p_hat), 
+      from = 0, 
+      to = 1,
+      main = "Aproximación normal a la distribución binomial",
+      xlab = "Parámetro p",
+      ylab = "Densidad de probabilidad",
+      col = "blue")
+abline(v = limit, lty = 2)
+abline(v = p_hat, col = "red")
+```
+
+*Conclusión:* No tenemos evidencia para no rechazar la hipótesis nula; por lo 
+tanto, no podemos afirmar que por lo menos el 80% de los estudiantes no utilizan 
+menos de media hora las redes sociales.
+
+
+## Hipótesis 2:
+Los estudiantes que están cursando semestres entre 6 a 10 emplean menos las redes sociales que cuando estaban cursando entre su 1 a 5 semestre. (horas de uso promedio antes y después, nivel de semestre). 
+
+*Tratamiento de datos*
+Se seleccionaron las columnas relevantes que muestran la frecuencia de uso y su equivalente durante los primeros cinco semestres. Se filtraron únicamente las filas correspondientes a estudiantes en el sexto semestre o superior, y se promediaron los valores asignando las siguientes equivalencias: "Menos de 1 hora" se consideró como 0.5 horas, "1-2 horas" como 1.5 horas, "2-3 horas" como 2.5 horas, "3-4 horas" como 3.5 horas, "4-5 horas" como 4.5 horas, y "Más de 5 horas" como 6 horas.
+
+```{r}
+social_networks_data3 <- read.csv("./social-network-data.csv")
+social_networks_data3 <- social_networks_data3[, -c(1)]
+new_colnames3 <- c("Edad", "Sexo", "Trabaja", "Deporte", "Redes_Sociales", "Horas_Uso", "Carrera", "Semestre", "Uso_Clase", "Uso_Primeros_Semestres")
+colnames(social_networks_data3) <- new_colnames3
+
+categorias_Horas_Uso <- c("Menos de 1 hora", 
+                          "1-2 horas", 
+                          "2-3 horas", 
+                          "3-4 horas", 
+                          "4-5 horas", 
+                          "Más de 5 horas")
+reemplazos_Horas_Uso <- c(0.5, 1.5, 2.5, 3.5, 4.5, 6)
+categorias_Uso_Primeros_Semestres <- c("Menos de 1 hora al día", 
+                                       "1-2 horas al día", 
+                                       "2-3 horas al día",
+                                       "3-4 horas al día", 
+                                       "4-5 horas al día", 
+                                       "Más de 5 horas al día")
+reemplazos_Uso_Primeros_Semestres <- c(0.5, 1.5, 2.5, 3.5, 4.5, 6)
+
+social_networks_data3$Horas_Uso_1a5 <- reemplazos_Uso_Primeros_Semestres[match(social_networks_data3$Uso_Primeros_Semestres,
+                                                                                      categorias_Uso_Primeros_Semestres)]
+
+social_networks_data3$Horas_Uso_6a10 <- reemplazos_Horas_Uso[match(social_networks_data3$Horas_Uso, 
+                                                            categorias_Horas_Uso)]
+
+paired_sample <- social_networks_data3[social_networks_data3$Uso_Primeros_Semestres != "", c(11, 12)]
+```
+
+```{r}
+datos_1a5 <- c(paired_sample$Horas_Uso_1a5)
+datos_6a10 <- c(paired_sample$Horas_Uso_6a10)
+diferencia <- c(datos_6a10- datos_1a5)
+
+tabla_datos <- data.frame(Horas_Uso_1a5 = datos_1a5,
+                          Horas_Uso_6a10 = datos_6a10,
+                          Diferencia = diferencia)
+print(tabla_datos)
+```
+El objetivo de esta investigación es probar la hipótesis de que los estudiantes universitarios de semestres avanzados (6 a 10) dedican menos tiempo a las redes sociales que cuando cursaban semestres iniciales (1 a 5). Esta hipótesis se basa en la premisa de que, a medida que los estudiantes avanzan en su carrera universitaria, enfrentan mayores responsabilidades académicas, laborales y personales, lo que podría conducir a una disminución del tiempo disponible para actividades de ocio, como el uso de redes sociales.
+
+$$
+H_0: \mu_{6-10} - \mu_{1-5} = 0\\
+H_1: \mu_{6-10} - \mu_{1-5} < 0
+$$
+Suponiendo que los datos siguen la distribución NORMAL, con un nivel de significancia de 0.05
+```{r}
+n= length(diferencia)
+print(paste("Tamaño de la muestra:", n))
+mu_d = mean(diferencia)
+print(paste("Diferencia media:", mu_d))
+s = sd(diferencia)
+print(paste("DS muestral s:", s))
+
+# Estadístico t
+estad_T <- mu_d / (s / sqrt(n))
+print(paste("Estadístico t:", estad_T))
+
+# Nivel de significancia (alfa)
+alfa <- 0.05
+
+# Valor crítico para una cola (inferior)
+ta <- qt(alfa, df = n - 1, lower.tail = TRUE)
+print(paste("Valor crítico (t_alpha):", ta))
+
+# Cálculo del p-valor (prueba de una cola, inferior)
+p_value <- pt(estad_T, df = n - 1, lower.tail = TRUE)
+print(paste("El p-value es:", p_value))
+
+# Resultados de la prueba
+if (p_value < alfa) {
+  print("Rechazamos la hipótesis nula")
+} else {
+  print(paste("No podemos rechazar la hipótesis nula a un nivel de significancia de",alfa))
+}
+```
+```{r}
+curve(dt(x, df = n-1), col = 'salmon', 
+      from = -3, to = 3, 
+      ylab = 'Densidad', xlab = 't', 
+      main = 'Distribución t con n-1 grados de libertad')
+
+abline(v = ta, col = 'red', lty = 2)
+abline(v = estad_T, col = 'green', lty = 2)
+legend('topright', legend = c(paste('Valor crítico, a=', alfa), 'Estadístico T'), col = c('red', 'green'), lty = 2)
+```
+
+### Conclusiones
+Dado que tanto el valor crítico como el p-valor indican que no podemos rechazar la hipótesis nula, concluimos que no hay suficiente evidencia estadística para afirmar que los estudiantes en semestres avanzados dedican menos tiempo a las redes sociales que cuando cursaban los semestres iniciales. Por lo tanto, los datos no respaldan la premisa de que el tiempo de uso de las redes sociales disminuye significativamente a medida que los estudiantes avanzan en su carrera universitaria.
+
+
+## Hipotesis 3: 
+Los estudiantes deportistas usan significativamente menos tiempo en las redes sociales que los estudiantes que no practican deporte (tiempo promedio de uso de redes sociales, práctica deporte sí/no). 
+$$
+H_0: \tilde{\mu}_{NoDeporte}  = \tilde{\mu}_{SiDeporte}\\
+H_1: \tilde{\mu}_{NoDeporte}  > \tilde{\mu}_{SiDeporte}
+$$
+
+*Tratamiento de datos*
+
+```{r}
+social_networks_data2 <- read.csv("./social-network-data.csv")
+social_networks_data2 <- social_networks_data2[, -c(1)]
+new_colnames2 <- c("Edad", "Sexo", "Trabaja", "Deporte", "Redes_Sociales", "Horas_Uso", "Carrera", "Semestre", "Uso_Clase", "Uso_Primeros_Semestres")
+colnames(social_networks_data2) <- new_colnames2
+
+# Convertimos la columna de práctica de deporte a factor
+social_networks_data2$Deporte <- factor(social_networks_data2$Deporte, levels = c("No", "Si"))
+
+tiempo_uso <- c("1-2 horas" = 1, "2-3 horas" = 2, "3-4 horas" = 3, 
+                "4-5 horas" = 4, "Más de 5 horas" = 5)
+social_networks_data2$tiempo_uso_num <- tiempo_uso[social_networks_data2$Horas_Uso]
+grupo_no_deporte <- social_networks_data2$tiempo_uso_num[social_networks_data2$Deporte == "No"]
+grupo_si_deporte <- social_networks_data2$tiempo_uso_num[social_networks_data2$Deporte == "Si"]
+```
+
+```{r}
+max_length <- max(length(grupo_no_deporte), length(grupo_si_deporte))
+
+# Rellenar con NA para que todos los vectores tengan la misma longitud
+grupo_no_deporte1 <- c(grupo_no_deporte, rep(NA, max_length - length(grupo_no_deporte)))
+grupo_si_deporte1 <- c(grupo_si_deporte, rep(NA, max_length - length(grupo_si_deporte)))
+
+tabla_datos <- data.frame(No_Deporte = grupo_no_deporte1, Si_Deporte = grupo_si_deporte1)
+print(tabla_datos)
+```
+
+usando una significancia de 0.05
+```{r}
+n1 <- length(grupo_no_deporte) #muestra mas pequeña
+n2 <- length(grupo_si_deporte) #muestra mas grande
+
+# Unir los datos en un solo vector
+deporte <- c(grupo_no_deporte, grupo_si_deporte)
+
+# Ordenar los datos
+fre_ordenada <- sort(deporte)
+
+# Calcular los rangos
+rangos <- rank(fre_ordenada)
+
+# Asignar los rangos a los datos originales
+rangos_NoDeporte <- rank(deporte)[1:length(grupo_no_deporte)]
+rangos_SiDeporte <- rank(deporte)[(length(grupo_no_deporte) + 1):length(deporte)]
+
+# Calcular W1 y W2
+w1 <- sum(rangos_NoDeporte)
+w2 <- sum(rangos_SiDeporte)
+print(paste("w1 equivale a: ", w1))
+print(paste("w2 equivale a: ", w2))
+
+sub <- w1 + w2
+prueba <- (length(rangos_NoDeporte) + length(rangos_SiDeporte)) * (length(rangos_NoDeporte) + length(rangos_SiDeporte) + 1) / 2
+print(paste("La prueba nos indica que w1 + w2 : ", sub, "debe ser igual a: ", prueba))
+
+# Calcular U1 y U2
+u1 <- w1 - (length(rangos_NoDeporte) * (length(rangos_NoDeporte) + 1)) / 2
+u2 <- w2 - (length(rangos_SiDeporte) * (length(rangos_SiDeporte) + 1)) / 2
+
+# Obtener el valor mínimo de U
+U <- min(u1, u2)
+print(paste("el estadistico U es: ", U))
 
 ```
 
+Realizamos una Aproximación a la NORMAL, porque n2 excede de 20.
+
+```{r}
+# Calculamos la media y la desviación estándar d
+media_U <- (n1 * n2) / 2
+sd_U <- sqrt((n1 * n2 * (n1 + n2 + 1)) / 12)
+
+# Calculamos el z-score
+Z <- (U - media_U) / sd_U
+cat("Z-score:", Z, "\n")
+
+# Calculamos el p-valor (prueba de dos colas)
+p_valor <- pnorm(Z)
+cat("P-valor:", p_valor, "\n")
+
+#Calculamos valor critico cola superior
+z_critico <- qnorm(0.05, lower.tail = FALSE)
+if (Z < -z_critico) {
+  cat("Rechazamos la hipótesis nula. Los estudiantes deportistas usan significativamente menos tiempo en las redes sociales.\n")
+} else {
+  cat("No podemos rechazar la hipótesis nula. No hay evidencia suficiente para afirmar que los estudiantes deportistas usan menos tiempo en las redes sociales.\n")
+}
+```
+```{r}
+curve(dnorm(x), from = -2, to = 2, col ='red')
+abline(v = Z, col = 'orange')
+abline(v= z_critico, col = 'green')
+```
+
+*Conclusion* Los datos sugiere que el grupo que practica deporte tiende a usar menos las redes sociales, pero la magnitud no es muy grande.
+El p-valor (0.2872562) es mayor que el nivel de significancia típico de 0.05, no podemos rechazar la hipótesis. No hay evidencia estadística suficiente para concluir que existe una diferencia significativa en el uso de redes sociales entre los estudiantes que practican deporte y los que no.
+No podemos afirmar que "los estudiantes deportistas usan significativamente menos tiempo en las redes sociales que los estudiantes que no practican deporte". Aunque hay una ligera tendencia Z-score a que los deportistas usen menos las redes sociales, esta diferencia no es estadísticamente significativa.
